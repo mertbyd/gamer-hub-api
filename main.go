@@ -8,16 +8,11 @@ import (
 	"log"
 
 	"github.com/labstack/echo/v4"
-	"github.com/labstack/echo/v4/middleware"
 )
 
 func main() {
 	// Echo instance oluştur
 	e := echo.New()
-
-	// Middleware ekle
-	e.Use(middleware.Logger())
-	e.Use(middleware.Recover())
 
 	// DB bağlantısı configs.DB üzerinden zaten kurulmuş durumda
 	dbClient := configs.GetCollection(configs.DB, "games")            //tabloya bağlanmak için
