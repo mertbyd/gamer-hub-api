@@ -7,36 +7,36 @@ import (
 	"api-steam/services"
 	"log"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v4/middleware"
 )
 
 func main() {
+	// Echo instance oluştur
+	e := echo.New()
 
-	// Fiber app oluştur
-	appRoute := fiber.New(fiber.Config{
-		AppName: "API-Steam Game API",
-	})
+	// Middleware ekle
+	e.Use(middleware.Logger())
+	e.Use(middleware.Recover())
 
-	// Yapay Zeka
 	// DB bağlantısı configs.DB üzerinden zaten kurulmuş durumda
-	dbClient := configs.GetCollection(configs.DB, "games")
-	ProductRepositoryDB := repository.NewProductRepository(dbClient)
-	productService := services.NewProductService(ProductRepositoryDB)
-	productHandler := app.ProductHandler{Services: productService}
-	// Yapay Zeka BİTİŞ
+	dbClient := configs.GetCollection(configs.DB, "games")            //tabloya bağlanmak için
+	productRepositoryDB := repository.NewProductRepository(dbClient)  //Repistory katmanına bağlantı nesnesini veririz
+	productService := services.NewProductService(productRepositoryDB) // servis katmanında repistory katmanındakifonksiyonlara erişmek için
+	productHandler := app.ProductHandler{Services: productService}    //handlerda kulancağımız servis elamanları için handlera servis den bir nesne veiriz
 
-	// Game endpoint'i
-	// CRUD ve Arama Endpointleri
-	appRoute.Post("/api/game", productHandler.CreateProduct)                // Yeni bir oyun oluşturur
-	appRoute.Get("/api/games", productHandler.GetAllProduct)                // Tüm oyunları listeler
-	appRoute.Delete("/api/game/:id", productHandler.DeleteProduct)          // ID'ye göre oyun siler
-	appRoute.Put("/api/game/:id", productHandler.UpdateProduct)             // ID'ye göre oyunu tamamen günceller
-	appRoute.Patch("/api/game/:id", productHandler.PatchProduct)            // ID'ye göre oyunun belirli alanlarını günceller
-	appRoute.Get("/api/game/:id", productHandler.GetByID)                   // ID'ye göre oyun getirir
-	appRoute.Get("/api/games/sorted", productHandler.GetGamesSorted)        // Oyunları belirtilen alana göre sıralar (asc/desc)
-	appRoute.Get("/api/games/exact", productHandler.GetGamesByExactName)    // Tam isim eşleşmesine göre oyun arar
-	appRoute.Get("/api/games/search", productHandler.GetGamesByPartialName) // Kısmi isim eşleşmesine göre oyun arar
+	//endpointi
+	e.POST("/api/game", productHandler.CreateProduct)                // Yeni bir oyun oluşturur
+	e.GET("/api/games", productHandler.GetAllProduct)                // Tüm oyunları listeler
+	e.DELETE("/api/game/:id", productHandler.DeleteProduct)          // ID'ye göre oyun siler
+	e.PUT("/api/game/:id", productHandler.UpdateProduct)             // ID'ye göre oyunu tamamen günceller
+	e.PATCH("/api/game/:id", productHandler.PatchProduct)            // ID'ye göre oyunun belirli alanlarını günceller
+	e.GET("/api/game/:id", productHandler.GetByID)                   // ID'ye göre oyun getirir
+	e.GET("/api/games/sorted", productHandler.GetGamesSorted)        // Oyunları belirtilen alana göre sıralar (asc/desc)
+	e.GET("/api/games/exact", productHandler.GetGamesByExactName)    // Tam isim eşleşmesine göre oyun arar
+	e.GET("/api/games/search", productHandler.GetGamesByPartialName) // Kısmi isim eşleşmesine göre oyun arar
+
 	// Sunucuyu başlat
 	log.Println("Server 8080 portunda başlatılıyor...")
-	log.Fatal(appRoute.Listen(":8080"))
+	log.Fatal(e.Start(":8080"))
 }

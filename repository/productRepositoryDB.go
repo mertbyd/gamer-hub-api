@@ -169,17 +169,18 @@ func (t *ProductRepositoryDB) GetAndSorted(sortField string, order int) ([]model
 	return games, nil
 }
 
+// tam ismi getirmek için
 func (t *ProductRepositoryDB) GetByExactName(name string) ([]models.Game, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	filter := bson.M{"title": name} //MongoDB sorguları oluşturmak için kullanılan bir filtre nesnesidir
-	cursor, err := t.TodoCollection.Find(ctx, filter)
+	result, err := t.TodoCollection.Find(ctx, filter)
 	if err != nil {
 		log.Printf("Repository: Tam isim ile sorgu sırasında hata: %v", err)
 		return nil, err
 	}
 	var games []models.Game
-	if err = cursor.All(ctx, &games); err != nil {
+	if err = result.All(ctx, &games); err != nil {
 		log.Printf("Repository: Sonuçları okurken hata: %v", err)
 		return nil, err
 	}
@@ -187,6 +188,7 @@ func (t *ProductRepositoryDB) GetByExactName(name string) ([]models.Game, error)
 	return games, nil
 }
 
+// kısmi ismi getirmek için
 func (t *ProductRepositoryDB) GetByPartialName(name string) ([]models.Game, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
@@ -216,6 +218,14 @@ func (t *ProductRepositoryDB) GetByPartialName(name string) ([]models.Game, erro
 	return games, nil
 
 }
+
+//InsertOne() mongodb de 1 tane veri eklemek için
+//Find() veri çekmek için
+//DeleteOne() veri silmek için
+//ReplaceOne Komple veriyi güncelemek için ReplaceOne
+//UpdateOne Patch işleminde tek veri güncelmek için
+//FindOne() 1 tane veri çekmek için
+//Find().SetSort(bson.D{{Key: sortField, Value: order}}) find ile gelen verileri  sortField sıralanack parametre Value sıralama tipi
 
 /*Context (Bağlam) ve ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second):
 Context, Go'da işlemleri kontrol etmek, iptal etmek veya zaman aşımına uğratmak için kullanılan bir yapıdır. Özellikle:
