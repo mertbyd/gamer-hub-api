@@ -24,6 +24,8 @@ type ProductRepository interface {
 	GetAndSorted(sortField string, order int) ([]models.Game, error) //sortField string, order int   sortField=sıralamanın neye göre olcağı  order=+1 artana göre -1 azalana göre sıralalr
 	GetByExactName(name string) ([]models.Game, error)
 	GetByPartialName(name string) ([]models.Game, error)
+	InsertMany(games []models.Game) (bool, error)
+	GetByPriceRange(minPrice float64, maxPrice float64) ([]models.Game, error)
 }
 
 // ProductRepositoryDB, MongoDB işlemleri için collection(BAĞLANTI-DATABASE) ÇOK ALGILAYAMADIM
@@ -31,31 +33,47 @@ type ProductRepositoryDB struct {
 	TodoCollection *mongo.Collection //mongo.Collection: MongoDB'deki bir koleksiyonu temsil eder (SQL'deki tabloya benzer)
 }
 
-// TodoCollection *mongo.Collection oluşturur ve döndürür  serviste tüm fonksiyonları kulanılabilir yapmak için veririz
+// TodoCollection ile MongoDB koleksiyonuna erişim sağlayan repository nesnesini oluşturur
 func NewProductRepository(dbClient *mongo.Collection) ProductRepository {
 	return &ProductRepositoryDB{TodoCollection: dbClient}
 }
 
-// Insert metodu, veritabanına bir oyun ekler
+// Veritabanına tek bir oyun ekler ve başarı durumunu döndürür
 func (t *ProductRepositoryDB) Insert(game models.Game) (bool, error) { //t *ProductRepositoryDB bağlantı için reciver ettik
-
 	// Gerekli alanları doldur
 	game.ID = primitive.NewObjectID() //Mongo db nin kendi id si hariç bizim filtereememiz için benzersiz bir ıd atamada kulandık
-
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel() // Fonksiyon bittiğinde context iptal edilir
-
 	result, err := t.TodoCollection.InsertOne(ctx, game)
 	if err != nil {
 		log.Printf("Repository: Veritabanına oyun eklenirken hata: %v", err)
 		return false, err
 	}
-
 	log.Printf("Repository: MongoDB'ye ekleme başarılı, ID: %v", result.InsertedID)
 	return true, nil
 }
 
-// Tüm verileri getirme işlemi
+// Veritabanına birden fazla oyun toplu olarak ekler ve başarı durumunu döndürür
+func (t *ProductRepositoryDB) InsertMany(games []models.Game) (bool, error) { //t *ProductRepositoryDB bağlantı için reciver ettik
+	var gamelist []interface{} //interface{} yapıyoruz ve yeni bir dizi oluşturuyoruz çünkü Insertmany interface{} istiyor
+	for i := range games {
+		games[i].ID = primitive.NewObjectID()
+		games[i].CreatedAt = time.Now()
+		games[i].UpdatedAt = time.Now()
+		gamelist = append(gamelist, games[i])
+	} //Mongo db nin kendi id si hariç bizim filtereememiz için benzersiz bir ıd atamada kulandık
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel() // Fonksiyon bittiğinde context iptal edilir
+	result, err := t.TodoCollection.InsertMany(ctx, gamelist)
+	if err != nil {
+		log.Printf("Repository: Toplu oyun eklenirken hata: %v", err)
+		return false, err
+	}
+	log.Printf("Repository: MongoDB'ye ekleme başarılı, ID: %v", len(result.InsertedIDs))
+	return true, nil
+}
+
+// Veritabanındaki tüm oyunları bir dizi olarak getirir
 func (t *ProductRepositoryDB) GetAll() ([]models.Game, error) { //t *ProductRepositoryDB bağlantı için reciver ettik
 	var game models.Game
 	var games []models.Game
@@ -76,9 +94,8 @@ func (t *ProductRepositoryDB) GetAll() ([]models.Game, error) { //t *ProductRepo
 	return games, nil
 }
 
-// silme işlemi
+// Belirtilen ID'ye sahip oyunu veritabanından siler
 func (t *ProductRepositoryDB) Delete(id primitive.ObjectID) (bool, error) { //t *ProductRepositoryDB bağlantı için reciver ettik
-
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()                                                    // Fonksiyon bittiğinde context iptal edilir
 	result, err := t.TodoCollection.DeleteOne(ctx, bson.M{"_id": id}) //colectionda bir nesne silmek için talep
@@ -89,9 +106,8 @@ func (t *ProductRepositoryDB) Delete(id primitive.ObjectID) (bool, error) { //t 
 	return true, nil
 }
 
-// -Put
+// Belirtilen ID'ye sahip oyunu tamamen günceller (PUT)
 func (t *ProductRepositoryDB) Update(id primitive.ObjectID, game models.Game) (bool, error) {
-
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	game.ID = id                                                             //Güncelenecek objenin ıd si değişmemeli
@@ -106,11 +122,9 @@ func (t *ProductRepositoryDB) Update(id primitive.ObjectID, game models.Game) (b
 		return false, nil
 	}
 	return true, nil
-
 }
 
-// -Patch
-// Patch metodu, veritabanında var olan bir oyunun belirli alanlarını günceller
+// Belirtilen ID'ye sahip oyunun sadece belirli alanlarını günceller (PATCH)
 func (t *ProductRepositoryDB) Patch(id primitive.ObjectID, updates map[string]interface{}) (bool, error) {
 	// Context tanımlama eklendi
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -129,7 +143,7 @@ func (t *ProductRepositoryDB) Patch(id primitive.ObjectID, updates map[string]in
 	return true, nil
 }
 
-// ID ye göre oyun getirir
+// Belirtilen ID'ye göre tek bir oyun verisini getirir
 func (t *ProductRepositoryDB) GetByID(id primitive.ObjectID) (models.Game, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
@@ -147,7 +161,7 @@ func (t *ProductRepositoryDB) GetByID(id primitive.ObjectID) (models.Game, error
 	return game, nil // Game ve nil hata döndür
 }
 
-// fiyata göre sıralama içim
+// Oyunları belirtilen alana göre artana veya azalana sıralayarak getirir
 func (t *ProductRepositoryDB) GetAndSorted(sortField string, order int) ([]models.Game, error) { //sortField string, order int   sortField=sıralamanın neye göre olcağı  order=+1 artana göre -1 azalana göre sıralalr
 	var game models.Game
 	var games []models.Game
@@ -169,7 +183,7 @@ func (t *ProductRepositoryDB) GetAndSorted(sortField string, order int) ([]model
 	return games, nil
 }
 
-// tam ismi getirmek için
+// Tam olarak eşleşen isme sahip oyunları getirir
 func (t *ProductRepositoryDB) GetByExactName(name string) ([]models.Game, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
@@ -184,11 +198,10 @@ func (t *ProductRepositoryDB) GetByExactName(name string) ([]models.Game, error)
 		log.Printf("Repository: Sonuçları okurken hata: %v", err)
 		return nil, err
 	}
-
 	return games, nil
 }
 
-// kısmi ismi getirmek için
+// İsmin bir kısmıyla eşleşen oyunları getirir (regex kullanarak)
 func (t *ProductRepositoryDB) GetByPartialName(name string) ([]models.Game, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
@@ -202,7 +215,6 @@ func (t *ProductRepositoryDB) GetByPartialName(name string) ([]models.Game, erro
 	}
 	//YAPAY ZEKA
 	filter := bson.M{"title": regexPattern}
-
 	result, err := t.TodoCollection.Find(ctx, filter)
 	if err != nil {
 		log.Printf("Repository: Kısmi isim ile sorgu sırasında hata: %v", err)
@@ -216,7 +228,36 @@ func (t *ProductRepositoryDB) GetByPartialName(name string) ([]models.Game, erro
 		games = append(games, game)
 	}
 	return games, nil
+}
 
+// fiyat aralığına göre filtreleme
+func (t *ProductRepositoryDB) GetByPriceRange(minPrice float64, maxPrice float64) ([]models.Game, error) {
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	var games []models.Game
+	var game models.Game
+	//Yapay Zeka
+	filter := bson.M{
+		"price.amount": bson.M{
+			"$gte": minPrice,
+			"$lte": maxPrice,
+		},
+	}
+	//Yappay Zeka
+	result, err := t.TodoCollection.Find(ctx, filter)
+	if err != nil {
+		log.Printf("Repository: Fiyat aralığına göre sorgulama hatası: %v", err)
+		return nil, err
+	}
+	for result.Next(ctx) {
+		if result.Decode(&game); err != nil {
+			log.Printf("Repository: Oyun verisi çözümlenirken hata: %v", err)
+			return nil, err
+		}
+		games = append(games, game)
+	}
+	return games, nil
 }
 
 //InsertOne() mongodb de 1 tane veri eklemek için
@@ -226,7 +267,6 @@ func (t *ProductRepositoryDB) GetByPartialName(name string) ([]models.Game, erro
 //UpdateOne Patch işleminde tek veri güncelmek için
 //FindOne() 1 tane veri çekmek için
 //Find().SetSort(bson.D{{Key: sortField, Value: order}}) find ile gelen verileri  sortField sıralanack parametre Value sıralama tipi
-
 /*Context (Bağlam) ve ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second):
 Context, Go'da işlemleri kontrol etmek, iptal etmek veya zaman aşımına uğratmak için kullanılan bir yapıdır. Özellikle:
 context.Background(): Boş bir ana context oluşturur
@@ -259,10 +299,8 @@ Bu yapı, Clean Architecture prensiplerine uygun olarak yazılmış ve katmanlar
 claude-3.7-sonnet-latest
 Today at 00:37
 Go dilinde * ve & operatörleri bellek yönetimi ve pointer manipülasyonu için kullanılır. Bu temel kavramları açıklayayım:
-
 & (Adres Operatörü)
 & işareti, bir değişkenin bellek adresini alır. Yani, değişkenin değerini değil, o değişkenin bellekte nerede saklandığını verir.
-
 go
 Kaydet
 Kopyala
@@ -270,22 +308,5 @@ Kopyala
 2
 var x int = 10
 var p *int = &x  // p, x'in bellek adresini tutar
-Burada &x, x değişkeninin bellek adresini temsil eder. Bu operatör bir değişkeni "işaret etmek" için kullanılır.
-
-* (Dereference Operatörü)
-* işareti iki farklı şekilde kullanılır:
-
-Tip Tanımlaması: Bir pointer tipi tanımlarken kullanılır
-go
-Kopyala
-1
-var p *int  // p, bir int pointer'ıdır (bir int değerinin adresini tutabilir)
-Dereference İşlemi: Bir pointer'ın işaret ettiği değeri almak için kullanılır
-go
-Kopyala
-1
-2
-3
-4
-
+Burada &x, x değişkeninin bellek adresini te
 */

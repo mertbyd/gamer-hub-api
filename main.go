@@ -21,16 +21,17 @@ func main() {
 	productHandler := app.ProductHandler{Services: productService}    //handlerda kulancağımız servis elamanları için handlera servis den bir nesne veiriz
 
 	//endpointi
-	e.POST("/api/game", productHandler.CreateProduct)                // Yeni bir oyun oluşturur
-	e.GET("/api/games", productHandler.GetAllProduct)                // Tüm oyunları listeler
-	e.DELETE("/api/game/:id", productHandler.DeleteProduct)          // ID'ye göre oyun siler
-	e.PUT("/api/game/:id", productHandler.UpdateProduct)             // ID'ye göre oyunu tamamen günceller
-	e.PATCH("/api/game/:id", productHandler.PatchProduct)            // ID'ye göre oyunun belirli alanlarını günceller
-	e.GET("/api/game/:id", productHandler.GetByID)                   // ID'ye göre oyun getirir
-	e.GET("/api/games/sorted", productHandler.GetGamesSorted)        // Oyunları belirtilen alana göre sıralar (asc/desc)
-	e.GET("/api/games/exact", productHandler.GetGamesByExactName)    // Tam isim eşleşmesine göre oyun arar
-	e.GET("/api/games/search", productHandler.GetGamesByPartialName) // Kısmi isim eşleşmesine göre oyun arar
-
+	e.POST("/api/game", productHandler.CreateProduct)                    // Yeni bir oyun oluşturur
+	e.GET("/api/games", productHandler.GetAllProduct)                    // Tüm oyunları listeler
+	e.DELETE("/api/game/:id", productHandler.DeleteProduct)              // ID'ye göre oyun siler
+	e.PUT("/api/game/:id", productHandler.UpdateProduct)                 // ID'ye göre oyunu tamamen günceller
+	e.PATCH("/api/game/:id", productHandler.PatchProduct)                // ID'ye göre oyunun belirli alanlarını günceller
+	e.GET("/api/game/:id", productHandler.GetByID)                       // ID'ye göre oyun getirir
+	e.GET("/api/games/sorted", productHandler.GetGamesSorted)            // Oyunları belirtilen alana göre sıralar (asc/desc)
+	e.GET("/api/games/exact", productHandler.GetGamesByExactName)        // Tam isim eşleşmesine göre oyun arar
+	e.GET("/api/games/search", productHandler.GetGamesByPartialName)     // Kısmi isim eşleşmesine göre oyun arar
+	e.POST("/api/games/bulk", productHandler.CreateManyProducts)         // Birden fazla oyunu toplu ekler
+	e.GET("/api/games/price-range", productHandler.GetGamesByPriceRange) // Fiyat aralığına göre oyunları filtreler
 	// Sunucuyu başlat
 	log.Println("Server 8080 portunda başlatılıyor...")
 	log.Fatal(e.Start(":8080"))

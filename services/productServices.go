@@ -19,6 +19,8 @@ type ProductService interface {
 	ProductGetSorted(sortField string, order int) ([]models.Game, error)              //fiyata göre sıralama
 	ProductGetByExactName(name string) ([]models.Game, error)                         //Tam isme göre arama
 	ProductGetByPartialName(name string) ([]models.Game, error)                       //Kısmi isme göre arama
+	ProductInsertMany(games []models.Game) (*dto.GameDTO, error)
+	ProductGetByPriceRange(minPrice, maxPrice float64) ([]models.Game, error)
 }
 
 // DefaultProductService Repistory katmanında tanımladığımız fonksiyonları kulanmak için nesne türetme benzeri bir işlem
@@ -36,6 +38,19 @@ func (s *DefaultProductService) ProductInsert(product models.Game) (*dto.GameDTO
 	}
 	res = dto.GameDTO{Status: result}
 	return &res, nil
+}
+
+// ProductInsert birden fazla ürün eklemek için servis işlemini gerçekleştirir
+func (s *DefaultProductService) ProductInsertMany(games []models.Game) (*dto.GameDTO, error) {
+	var res dto.GameDTO
+	result, err := s.Repo.InsertMany(games)
+	if err != nil || !result {
+		res.Status = false
+		return &res, err
+	}
+	res = dto.GameDTO{Status: result}
+	return &res, nil
+
 }
 
 // ürün listesini
@@ -76,6 +91,8 @@ func (s *DefaultProductService) ProductPatch(id primitive.ObjectID, updates map[
 
 	return result, nil
 }
+
+// ID ye göre filtreleme yapmak için
 func (s *DefaultProductService) ProductGetByID(id primitive.ObjectID) (models.Game, error) {
 	result, err := s.Repo.GetByID(id)
 	if err != nil {
@@ -85,6 +102,7 @@ func (s *DefaultProductService) ProductGetByID(id primitive.ObjectID) (models.Ga
 	return result, nil
 }
 
+// fiyata göre sıralamak için
 func (s *DefaultProductService) ProductGetSorted(sortField string, order int) ([]models.Game, error) { //Fiyata artan ve azalana göre sıralama
 	result, err := s.Repo.GetAndSorted(sortField, order)
 	if err != nil {
@@ -104,6 +122,15 @@ func (s *DefaultProductService) ProductGetByExactName(name string) ([]models.Gam
 }
 func (s *DefaultProductService) ProductGetByPartialName(name string) ([]models.Game, error) {
 	result, err := s.Repo.GetByPartialName(name)
+	if err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
+// ProductGetByPriceRange, belirli bir fiyat aralığındaki oyunları getirir
+func (s *DefaultProductService) ProductGetByPriceRange(minPrice, maxPrice float64) ([]models.Game, error) {
+	result, err := s.Repo.GetByPriceRange(minPrice, maxPrice)
 	if err != nil {
 		return nil, err
 	}
